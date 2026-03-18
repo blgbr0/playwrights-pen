@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electron Demo - 任务管理器</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #64ffda;
+      font-size: 24px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    #taskInput {
+      flex: 1;
+      padding: 10px 15px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #1a1a2e;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    #taskInput:focus {
+      border-color: #64ffda;
+    }
+    #addBtn {
+      padding: 10px 20px;
+      background: #64ffda;
+      color: #1a1a2e;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    #addBtn:hover {
+      background: #00e5ff;
+    }
+    .stats {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      flex: 1;
+      padding: 15px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-card .number {
+      font-size: 28px;
+      font-weight: bold;
+      color: #64ffda;
+    }
+    .stat-card .label {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+    #taskList {
+      list-style: none;
+    }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 15px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: all 0.3s;
+    }
+    .task-item:hover {
+      background: rgba(255,255,255,0.1);
+    }
+    .task-item.completed .task-text {
+      text-decoration: line-through;
+      color: #666;
+    }
+    .task-checkbox {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #64ffda;
+    }
+    .task-text {
+      flex: 1;
+      font-size: 14px;
+    }
+    .delete-btn {
+      padding: 5px 10px;
+      background: rgba(255,82,82,0.2);
+      color: #ff5252;
+      border: 1px solid #ff5252;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.3s;
+    }
+    .delete-btn:hover {
+      background: #ff5252;
+      color: #fff;
+    }
+    #clearBtn {
+      display: block;
+      margin: 20px auto 0;
+      padding: 10px 25px;
+      background: transparent;
+      color: #ff5252;
+      border: 1px solid #ff5252;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+    #clearBtn:hover {
+      background: #ff5252;
+      color: #fff;
+    }
+    .message {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📝 任务管理器</h1>
+    
+    <div class="stats">
+      <div class="stat-card">
+        <div class="number" id="totalCount">0</div>
+        <div class="label">总任务</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="completedCount">0</div>
+        <div class="label">已完成</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="pendingCount">0</div>
+        <div class="label">待完成</div>
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <input type="text" id="taskInput" placeholder="输入新任务..." />
+      <button id="addBtn">添加</button>
+    </div>
+    
+    <ul id="taskList">
+      <li class="message" id="emptyMsg">暂无任务，添加一个吧！</li>
+    </ul>
+    
+    <button id="clearBtn" style="display:none;">清除已完成</button>
+  </div>
+  
+  <script>
+    const taskInput = document.getElementById('taskInput');
+    const addBtn = document.getElementById('addBtn');
+    const taskList = document.getElementById('taskList');
+    const clearBtn = document.getElementById('clearBtn');
+    const emptyMsg = document.getElementById('emptyMsg');
+    const totalCount = document.getElementById('totalCount');
+    const completedCount = document.getElementById('completedCount');
+    const pendingCount = document.getElementById('pendingCount');
+    
+    let tasks = [];
+    
+    function updateStats() {
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.done).length;
+      totalCount.textContent = total;
+      completedCount.textContent = completed;
+      pendingCount.textContent = total - completed;
+      
+      emptyMsg.style.display = total === 0 ? 'block' : 'none';
+      clearBtn.style.display = completed > 0 ? 'block' : 'none';
+    }
+    
+    function renderTasks() {
+      // Remove existing task items (keep emptyMsg)
+      document.querySelectorAll('.task-item').forEach(el => el.remove());
+      
+      tasks.forEach((task, idx) => {
+        const li = document.createElement('li');
+        li.className = 'task-item' + (task.done ? ' completed' : '');
+        li.innerHTML = `
+          <input type="checkbox" class="task-checkbox" 
+                 ${task.done ? 'checked' : ''} 
+                 onchange="toggleTask(${idx})" />
+          <span class="task-text">${task.text}</span>
+          <button class="delete-btn" onclick="deleteTask(${idx})">删除</button>
+        `;
+        taskList.insertBefore(li, emptyMsg);
+      });
+      
+      updateStats();
+    }
+    
+    function addTask() {
+      const text = taskInput.value.trim();
+      if (!text) return;
+      
+      tasks.push({ text, done: false });
+      taskInput.value = '';
+      renderTasks();
+      taskInput.focus();
+    }
+    
+    window.toggleTask = function(idx) {
+      tasks[idx].done = !tasks[idx].done;
+      renderTasks();
+    };
+    
+    window.deleteTask = function(idx) {
+      tasks.splice(idx, 1);
+      renderTasks();
+    };
+    
+    addBtn.addEventListener('click', addTask);
+    taskInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') addTask();
+    });
+    
+    clearBtn.addEventListener('click', () => {
+      tasks = tasks.filter(t => !t.done);
+      renderTasks();
+    });
+    
+    updateStats();
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+    "name": "electron-demo",
+    "version": "1.0.0",
+    "description": "Simple Electron demo for PlaywrightsPen testing",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron ."
+    },
+    "devDependencies": {
+        "electron": "^28.0.0"
+    }
+}
